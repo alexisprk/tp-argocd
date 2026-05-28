@@ -1,0 +1,68 @@
+# Values Helm pour installer ArgoCD lui-même (chart argo/argo-cd).
+# Ce fichier est consommé par `make argocd-install`.
+#
+# Doc du chart : https://github.com/argoproj/argo-helm/tree/main/charts/argo-cd
+#
+# Le but de ce fichier : exposer l'UI via l'ingress-nginx du cluster,
+# avec un host `argocd.devhub.local`. Le reste est laissé par défaut.
+
+global:
+  domain: argocd.devhub.local
+
+configs:
+  params:
+    # désactive le TLS interne — l'ingress-nginx est devant pour le HTTPS.
+    server.insecure: true
+  cm:
+    timeout.reconciliation: 180s
+    accounts.developer: login
+
+  rbac:
+    policy.default: ""
+    policy.csv: |
+      p, role:developer, applications, get, devhub/*, allow
+      p, role:developer, applications, sync, devhub/annuaire-*, allow
+      p, role:developer, applications, sync, devhub/planning-*, allow
+      p, role:developer, applications, sync, devhub/notif-*, allow
+      g, developer, role:developer
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hostname: argocd.devhub.local
+    annotations:
+      # ArgoCD termine son propre TLS en interne. On dit à l'ingress
+      # de ne pas refaire de TLS terminaison côté server.
+      nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    tls: false
+
+notifications:
+  enabled: true
+  templates:
+    template.on-sync-failed: |
+      message: |
+        Application {{.app.metadata.name}} has failed to sync.
+        Revision: {{.app.status.sync.revision}}
+        Error: {{.app.status.operationState.message}}
+  triggers:
+    trigger.on-sync-failed: |
+      - when: app.status.operationState.phase in ['Failed', 'Error']
+        send: [on-sync-failed]
+  notifiers:
+    service.webhook.webhook-site: |
+      url: https://webhook.site/e40dc5e6-7918-4380-9f18-0381a28dcbdf
+      headers:
+        - name: Content-Type
+          value: application/json
+
+# Garde-fou ressources — utile en TP pour ne pas saturer la machine.
+controller:
+  resources:
+    requests: { cpu: "50m", memory: "256Mi" }
+    limits:   { cpu: "1",   memory: "1Gi" }
+
+repoServer:
+  resources:
+    requests: { cpu: "50m", memory: "128Mi" }
+    limits:   { cpu: "500m", memory: "512Mi" }

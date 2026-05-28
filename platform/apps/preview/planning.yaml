@@ -1,0 +1,46 @@
+# ApplicationSet preview pour planning.
+# Une fois annuaire-preview.yaml fait, dupliquez en adaptant.
+#
+# TODO : à compléter à partir du modèle annuaire.yaml.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: planning-preview
+  namespace: argocd
+spec:
+  generators:
+    - pullRequest:
+        github:
+          owner: alexisprk
+          repo: tp-argocd
+        requeueAfterSeconds: 60
+  template:
+    metadata:
+      name: planning-preview-{{branch_slug}}
+      labels:
+        devhub.io/env: preview
+        devhub.io/service: planning
+    spec:
+      project: devhub
+      source:
+        repoURL: https://github.com/alexisprk/tp-argocd.git
+        targetRevision: '{{branch}}'
+        path: services/planning/chart
+        helm:
+          valueFiles:
+            - values-preview.yaml
+          parameters:
+            - name: ingress.enabled
+              value: "true"
+            - name: ingress.host
+              value: "{{branch_slug}}.planning.devhub.local"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: devhub-preview-{{branch_slug}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

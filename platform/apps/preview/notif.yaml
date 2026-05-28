@@ -1,0 +1,44 @@
+# ApplicationSet preview pour notif.
+# TODO : à compléter à partir du modèle annuaire.yaml.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: notif-preview
+  namespace: argocd
+spec:
+  generators:
+    - pullRequest:
+        github:
+          owner: alexisprk
+          repo: tp-argocd
+        requeueAfterSeconds: 60
+  template:
+    metadata:
+      name: notif-preview-{{branch_slug}}
+      labels:
+        devhub.io/env: preview
+        devhub.io/service: notif
+    spec:
+      project: devhub
+      source:
+        repoURL: https://github.com/alexisprk/tp-argocd.git
+        targetRevision: '{{branch}}'
+        path: services/notif/chart
+        helm:
+          valueFiles:
+            - values-preview.yaml
+          parameters:
+            - name: ingress.enabled
+              value: "true"
+            - name: ingress.host
+              value: "{{branch_slug}}.notif.devhub.local"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: devhub-preview-{{branch_slug}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

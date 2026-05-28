@@ -1,0 +1,56 @@
+# ApplicationSet : annuaire — previews par branche.
+#
+# C'est l'étape 7. Lisez la doc avant : les generators sont nombreux et
+# leur subtilités piègent.
+#   Doc : https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/
+#
+# Deux options possibles :
+#   - `git` generator (sur branches) — le plus simple, polling 3 min.
+#   - `pullRequest` generator (sur PRs ouvertes) — requiert un token GitHub.
+#
+# Choisissez et justifiez dans RAPPORT.md.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: annuaire-preview
+  namespace: argocd
+spec:
+  # TODO étape 7 (défi) : ajoutez `goTemplate: true` si vous voulez utiliser
+  # la syntaxe Go-template (plus puissante mais nouvelle).
+  generators:
+    - pullRequest:
+        github:
+          owner: alexisprk
+          repo: tp-argocd
+        requeueAfterSeconds: 60
+
+  template:
+    metadata:
+      name: annuaire-preview-{{branch_slug}}
+      labels:
+        devhub.io/env: preview
+        devhub.io/service: annuaire
+    spec:
+      project: devhub
+      source:
+        repoURL: https://github.com/alexisprk/tp-argocd.git
+        targetRevision: '{{branch}}'
+        path: services/annuaire/chart
+        helm:
+          valueFiles:
+            - values-preview.yaml
+          parameters:
+            - name: ingress.enabled
+              value: "true"
+            - name: ingress.host
+              value: "{{branch_slug}}.annuaire.devhub.local"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: devhub-preview-{{branch_slug}}
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
