@@ -23,6 +23,9 @@ spec:
         github:
           owner: alexisprk
           repo: tp-argocd
+          tokenRef:
+            secretName: github-token
+            key: token
         requeueAfterSeconds: 60
 
   template:
