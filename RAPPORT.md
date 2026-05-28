@@ -89,6 +89,29 @@ graph TD
 
 ---
 
+## Étape 3 — Containerisation des services
+
+Nous avons conteneurisé les microservices en respectant des règles de sécurité et d'optimisation strictes :
+* **Multi-stage build** : Isolation des étapes de compilation (Go/Node/Python) et de runtime.
+* **Images ultra-légères (non-root)** : Utilisation d'images minimales (Alpine, Distroless pour Go).
+  * `annuaire` (Node.js) : **~168 Mo** | Utilisateur `appuser` (UID 1001).
+  * `planning` (Python FastAPI) : **~122 Mo** | Utilisateur `appuser` (UID 1001).
+  * `notif` (Go statique) : **~35 Mo** | Utilisateur distroless `nonroot`.
+* **Health Check** : Exposition d'un endpoint `/healthz` sur le port `8080` de chaque service.
+
+---
+
+## Étape 4 — Écriture des Charts Helm
+
+Chaque microservice dispose d'un chart Helm modulaire et paramétrable :
+* **Structure standard** : `Chart.yaml`, `values.yaml`, et dossier `templates/` (`deployment.yaml`, `service.yaml`, `ingress.yaml`, `_helpers.tpl`).
+* **Surcharges par environnement** : 
+  * `values-dev.yaml` : Mode stable (2 replicas, ressources allouées, Ingress actif sur le domaine `.devhub.local`).
+  * `values-preview.yaml` : Mode éphémère (1 replica, ressources minimisées, Ingress dynamique configuré par l'ApplicationSet).
+* **Robustesse applicative** : Intégration systématique de sondes `livenessProbe` et `readinessProbe` HTTP sur `/healthz` exécutées toutes les 10 secondes.
+
+---
+
 ## Étape 5 — Comparaison entre `selfHeal` et `prune`
 
 * **`selfHeal: true` (Auto-réparation)** : Si l'état réel dérive (action manuelle), ArgoCD réapplique l'état Git.
@@ -207,12 +230,12 @@ L'**auto-correction automatique du drift (`selfHeal: true`)** car elle élimine 
    * *Outil* : **Cosign** (Sigstore) pour la signature, couplé à une policy d'admission Kyverno.
    * *Référence* : [sigstore.dev](https://www.sigstore.dev/)
 5. **RBAC multi-équipe sur ArgoCD**
-   * *Risque* : Un développeur modifie ou supprime une application d'une autre équipe par accident.
+   * *Risque* : Un développeur modifie ou suprrime une application d'une autre équipe par accident.
    * *Outil* : **AppProject** lié à une authentification SSO/OIDC (Keycloak).
    * *Référence* : [argo-cd.readthedocs.io/en/stable/operator-manual/rbac](https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/)
 6. **Disaster recovery applicatif**
    * *Risque* : Perte définitive des bases de données suite à un crash du fournisseur cloud.
-   * *Outil* : **Velero** pour la sauvegarde et restauration des volumes persistants (PVC).
+   * *Outil* : **Velero** pour la sauvegarde et restauration des PVC.
    * *Référence* : [velero.io](https://velero.io/)
 7. **Multi-cluster**
    * *Risque* : Complexité extrême et duplication des manifests pour gérer des dizaines de clusters.
