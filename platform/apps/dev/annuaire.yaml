@@ -26,11 +26,15 @@ spec:
     namespace: devhub-dev
 
   syncPolicy:
-    # TODO étape 5 : commencez en manuel (commentez le bloc automated).
-    # Puis basculez en auto avec selfHeal:true / prune:false une fois validé.
     automated:
       prune: false
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /status
