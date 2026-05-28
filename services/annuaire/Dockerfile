@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Optimisation du cache Docker en copiant d'abord package.json
 COPY package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Copie du reste du code source
 COPY src/ ./src/
