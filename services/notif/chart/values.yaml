@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/<votre-handle>/notif
+  repository: ghcr.io/alexisprk/notif
   tag: ""
   pullPolicy: IfNotPresent
 
