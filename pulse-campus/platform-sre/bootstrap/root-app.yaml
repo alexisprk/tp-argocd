@@ -19,7 +19,7 @@ spec:
     # TODO : remplacez par l'URL HTTPS de votre fork de ce repo.
     repoURL: https://github.com/alexisprk/tp-argocd.git
     targetRevision: main
-    path: devhub-campus/pulse-campus/platform-sre/apps
+    path: pulse-campus/platform-sre/apps
     directory:
       recurse: true
 

@@ -23,7 +23,7 @@ spec:
       helm:
         releaseName: argo-rollouts
         valueFiles:
-          - $values/devhub-campus/pulse-campus/platform-sre/values/argo-rollouts-values.yaml
+          - $values/pulse-campus/platform-sre/values/argo-rollouts-values.yaml
     - repoURL: https://github.com/alexisprk/tp-argocd.git
       targetRevision: main
       ref: values

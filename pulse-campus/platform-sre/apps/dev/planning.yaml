@@ -15,7 +15,7 @@ spec:
   source:
     repoURL: https://github.com/alexisprk/tp-argocd.git
     targetRevision: main
-    path: devhub-campus/pulse-campus/services/planning/chart
+    path: pulse-campus/services/planning/chart
     helm:
       valueFiles:
         - values-dev.yaml

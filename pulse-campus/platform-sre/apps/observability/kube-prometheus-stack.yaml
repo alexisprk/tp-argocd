@@ -27,7 +27,7 @@ spec:
         releaseName: kps
         # On référence le fichier values du repo (source 2 ci-dessous).
         valueFiles:
-          - $values/devhub-campus/pulse-campus/platform-sre/values/kube-prometheus-stack-values.yaml
+          - $values/pulse-campus/platform-sre/values/kube-prometheus-stack-values.yaml
     # 2) le repo où vit le fichier de values.
     - repoURL: https://github.com/alexisprk/tp-argocd.git
       # TODO : alignez sur la même révision que la root Application.
