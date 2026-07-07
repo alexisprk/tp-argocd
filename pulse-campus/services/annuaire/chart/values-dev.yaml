@@ -9,5 +9,5 @@ env:
   LOG_LEVEL: debug
 
 # En étape 4 vous activerez le ServiceMonitor :
-# monitoring:
-#   enabled: true
+monitoring:
+  enabled: true
