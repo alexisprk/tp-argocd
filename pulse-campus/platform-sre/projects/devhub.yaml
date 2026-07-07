@@ -30,6 +30,8 @@ spec:
       namespace: argo-rollouts
     - server: https://kubernetes.default.svc
       namespace: argocd
+    - server: https://kubernetes.default.svc
+      namespace: kube-system
 
   # Le kube-prometheus-stack pose beaucoup de CRDs cluster-scoped.
   # En l'état (vide) ArgoCD bloquerait leur création. Vous devez whitelister
@@ -39,9 +41,14 @@ spec:
       kind: Namespace
     - group: apiextensions.k8s.io
       kind: CustomResourceDefinition
-    # TODO : ajoutez ici les ressources cluster-scoped supplémentaires
-    # qu'argo-rollouts et kube-prometheus-stack créent (ClusterRole,
-    # ClusterRoleBinding, MutatingWebhookConfiguration, etc.).
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
 
   namespaceResourceWhitelist:
     - group: "*"
