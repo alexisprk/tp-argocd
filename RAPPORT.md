@@ -8,14 +8,21 @@
 ## Étape 0 — Outillage complémentaire
 
 ### Livrable : Sortie des versions des CLI requises
-*Note : Insérer les versions de vos outils après leur installation locale.*
 
 ```text
 $ kubectl argo rollouts version
-[Insérer la sortie ici]
+kubectl-argo-rollouts: v1.7.1+6a99ea9
+  BuildDate: 2024-06-24T22:53:28Z
+  GitCommit: 6a99ea9908e8f1e816ccd71e4c35adbbbbdd5f6c
+  Platform: windows/amd64
 
 $ promtool --version
-[Insérer la sortie ici]
+promtool, version 2.53.1 (branch: HEAD, revision: 14cfec3f6048b735e08c1e9c64c8d4211d32bab4)
+  build date:       20240710-10:18:30
+  platform:         windows/amd64
+
+$ jq --version
+jq-1.7.1
 ```
 
 ---
