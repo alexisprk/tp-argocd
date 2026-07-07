@@ -1,243 +1,255 @@
-# LIVRABLES DU TP 2 — GITOPS AVEC ARGOCD : `DEVHUB CAMPUS`
-
-**Cours d'architecture logicielle & déploiement — M2 Ingénierie Web**  
+# RAPPORT TECHNIQUE — TP 3 : LIVRAISON PROGRESSIVE ET OBSERVABILITÉ
+**Cours d'architecture logicielle & déploiement — ESGI 5 SRC**  
 **Binôme :** alexisprk  
-**Dépôt distant :** [github.com/alexisprk/tp-argocd.git](https://github.com/alexisprk/tp-argocd.git)  
+**Dépôt de configuration :** [github.com/alexisprk/tp-argocd.git](https://github.com/alexisprk/tp-argocd.git)  
 
 ---
 
-## Étape 0 — Outillage
+## Étape 0 — Outillage complémentaire
 
-### Versions des outils installés
+### Livrable : Sortie des versions des CLI requises
+*Note : Insérer les versions de vos outils après leur installation locale.*
+
 ```text
-$ kubectl version --client
-Client Version: v1.30.2
-KubeClientVersion: v1.36.0 (Helm embedded client)
+$ kubectl argo rollouts version
+[Insérer la sortie ici]
 
-$ helm version
-version.BuildInfo{Version:"v4.2.0", GitCommit:"06468084e85c...", GoVersion:"go1.26.3"}
-
-$ argocd version --client
-argocd: v3.4.2+0dc6b1b
-  GitCommit: 0dc6b1b57dd5bb925d5b03c3d09419ab9fb4225e
-  Platform: windows/amd64
+$ promtool --version
+[Insérer la sortie ici]
 ```
 
 ---
 
-## Étape 1 — Comprendre GitOps en 1 page
+## Étape 1 — SLI, SLO, error budget : Le vocabulaire avant le clavier
 
-### 1. Schéma comparatif : Flux *Push* vs. Flux *Pull*
+### 1. Tableaux de définition des SLI / SLO par service
 
-```mermaid
-graph TD
-    subgraph "Flux Push (TP 1)"
-        A[Développeur] -->|git push| B(GitHub Repository)
-        B -->|CI/CD Actions| C(GitHub Actions Runner)
-        C -->|kubectl apply - Pousse l'état| D(Cluster K8s local)
-    end
-
-    subgraph "Flux Pull / GitOps (TP 2)"
-        E[Développeur] -->|git push| F(GitHub Config Repo)
-        G[ArgoCD Controller] -->|Lit Git & réconcilie| F
-        G -->|Tire l'état en interne| H(Cluster K8s local)
-    end
-
-    style C fill:#ffe3e3,stroke:#cc0000,stroke-width:1.5px
-    style G fill:#e3efff,stroke:#0066cc,stroke-width:1.5px
-```
-
-### 2. Tableau de comparaison des paradigmes
-
-| Question | *Push* (`kubectl apply` en CI) | *Pull* (ArgoCD) |
-| :--- | :--- | :--- |
-| **Qui a les droits sur le cluster ?** | La pipeline de CI/CD externe (requiert des credentials admin à distance). | L'agent ArgoCD interne au cluster (aucune clé d'accès admin externe n'est exposée). |
-| **Où est l'historique des changements ?** | Dispersé entre les logs de CI, les commits et l'état manuel du cluster. | Centralisé et immuable dans l'historique Git (le Git log est le registre d'audit). |
-| **Que se passe-t-il si un dev modifie le cluster à la main ?** | Rien. Le cluster dérive silencieusement jusqu'au prochain run de la CI/CD. | ArgoCD détecte l'écart instantanément, alerte (`OutOfSync`) et auto-corrige (`selfHeal`). |
-| **Comment ajouter un environnement ?** | Dupliquer les jobs de la CI, configurer des secrets de connexion supplémentaires. | Déclarer un simple manifest `Application` ou l'ajouter au générateur `ApplicationSet`. |
-| **Comment faire un rollback ?** | Relancer une ancienne pipeline sur un commit précédent ou changer le tag. | Faire un `git revert` du commit fautif. ArgoCD applique l'état précédent sain de Git. |
-| **Combien de pipelines pour 30 services ?** | 30 pipelines complexes avec configuration d'authentification individuelle. | 1 pipeline par service pour builder l'image, 0 pipeline pour le déploiement (ArgoCD gère tout). |
-| **Qui voit *en direct* ce qui tourne ?** | Uniquement les Ops via `kubectl`. Les devs dépendent des logs de CI. | Tous les développeurs et l'équipe produit à travers l'interface Web graphique d'ArgoCD. |
-
-### 3. Prise de position personnelle
-> « Pour mes futurs projets personnels, je privilégierai le modèle **Pull (ArgoCD)**. La sécurité renforcée par l'absence de clé d'accès admin externe dans les pipelines de CI et la clarté visuelle de l'UI d'ArgoCD pour identifier les pannes compensent largement le coût d'apprentissage de l'outil. »
-
----
-
-## Étape 2 — Le vocabulaire d'ArgoCD
-
-* **`Application`** : Représente la liaison de synchronisation entre un dépôt Git (source) et un namespace Kubernetes (destination).
-  * *Exemple dans mon projet* : L'Application `annuaire-dev` qui déploie le microservice de l'annuaire dans `devhub-dev`.
-* **`AppProject`** : Périmètre logique de sécurité isolant les applications et régulant les namespaces autorisés.
-  * *Exemple dans mon projet* : Le projet `devhub` limitant l'accès uniquement aux namespaces `devhub-*`.
-* **`Source`** : L'état désiré décrit dans Git (repo, révision, chemin, valeurs).
-  * *Exemple dans mon projet* : Le dépôt `alexisprk/tp-argocd.git`, branche `main`, chemin `services/annuaire/chart`.
-* **`Destination`** : Le cluster cible et le namespace de destination où déployer les ressources.
-  * *Exemple dans mon projet* : Le cluster local `https://kubernetes.default.svc` dans le namespace `devhub-dev`.
-* **`Sync`** : L'acte de réconciliation où ArgoCD applique les fichiers Git pour que l'état réel concorde.
-  * *Exemple dans mon projet* : Le passage au statut `Synced` après l'application automatique des templates Helm.
-* **`Prune`** : La suppression automatique des ressources du cluster absentes des fichiers de configuration Git.
-  * *Exemple dans mon projet* : Si on retire le template `ingress.yaml` du chart, ArgoCD va automatiquement détruire l'Ingress associé.
-* **`App of Apps`** : Pattern d'organisation où une application racine est chargée de générer les applications filles.
-  * *Exemple dans mon projet* : L'application `root` qui pointe vers `platform/apps/` pour créer automatiquement nos microservices.
-* **`ApplicationSet`** : Générateur d'Applications automatisé capable de boucler sur des paramètres (comme les branches).
-  * *Exemple dans mon projet* : `annuaire-preview` qui boucle sur les Pull Requests pour générer des environnements isolés.
-* **`Sync wave`** : Niveaux d'ordonnancement pour forcer l'ordre de déploiement des composants.
-  * *Exemple dans mon projet* : Wave `-1` pour les configurations, Wave `0` pour les applications.
-* **`Hook`** : Déclencheur exécutant des processus (ex: Jobs) à des phases spécifiques de la synchronisation.
-  * *Exemple dans mon projet* : Un Job de migration de base de données exécuté en hook `PreSync` avant la mise à jour des Pods.
-
----
-
-## Étape 3 — Containerisation des services
-
-Nous avons conteneurisé les microservices en respectant des règles de sécurité et d'optimisation strictes :
-* **Multi-stage build** : Isolation des étapes de compilation (Go/Node/Python) et de runtime.
-* **Images ultra-légères (non-root)** : Utilisation d'images minimales (Alpine, Distroless pour Go).
-  * `annuaire` (Node.js) : **~168 Mo** | Utilisateur `appuser` (UID 1001).
-  * `planning` (Python FastAPI) : **~122 Mo** | Utilisateur `appuser` (UID 1001).
-  * `notif` (Go statique) : **~35 Mo** | Utilisateur distroless `nonroot`.
-* **Health Check** : Exposition d'un endpoint `/healthz` sur le port `8080` de chaque service.
-
----
-
-## Étape 4 — Écriture des Charts Helm
-
-Chaque microservice dispose d'un chart Helm modulaire et paramétrable :
-* **Structure standard** : `Chart.yaml`, `values.yaml`, et dossier `templates/` (`deployment.yaml`, `service.yaml`, `ingress.yaml`, `_helpers.tpl`).
-* **Surcharges par environnement** : 
-  * `values-dev.yaml` : Mode stable (2 replicas, ressources allouées, Ingress actif sur le domaine `.devhub.local`).
-  * `values-preview.yaml` : Mode éphémère (1 replica, ressources minimisées, Ingress dynamique configuré par l'ApplicationSet).
-* **Robustesse applicative** : Intégration systématique de sondes `livenessProbe` et `readinessProbe` HTTP sur `/healthz` exécutées toutes les 10 secondes.
-
----
-
-## Étape 5 — Comparaison entre `selfHeal` et `prune`
-
-* **`selfHeal: true` (Auto-réparation)** : Si l'état réel dérive (action manuelle), ArgoCD réapplique l'état Git.
-  * *Danger* : Si une astreinte doit temporairement scaler en urgence un déploiement de 2 à 15 pods (`kubectl scale`) pour absorber un pic de charge, `selfHeal` va instantanément le ramener à 2 pods, saturant le service.
-* **`prune: true` (Nettoyage automatique)** : Si une ressource est retirée de Git, ArgoCD la supprime du cluster.
-  * *Danger* : Si un fichier de configuration critique (ex: ConfigMap ou StatefulSet) est supprimé ou renommé par erreur dans Git et poussé sur `main`, ArgoCD détruira immédiatement la ressource en production, entraînant une coupure ou une perte de données.
-
----
-
-## Étape 6 — Le pattern *App of Apps*
-
-### Pourquoi le pattern *App of Apps* n'est pas équivalent à un simple `kubectl apply -f apps/dev/` ?
-
-1. **Convergence continue** : `kubectl apply` est une action ponctuelle (push). Le *App of Apps* instaure une réconciliation continue en arrière-plan. ArgoCD surveille, alerte en cas de drift et ré-applique automatiquement.
-2. **Cycle de vie hiérarchisé** : Supprimer l'application racine (`root`) déclenche par cascade la suppression propre et ordonnée de toutes les applications enfants grâce au finalizer `resources-finalizer.argocd.argoproj.io`.
-3. **Contrôle RBAC** : Les applications filles générées par le pattern héritent des garde-fous de sécurité définis au niveau de l'AppProject `devhub` (namespaces limités, pas de ressources cluster-scoped).
-
----
-
-## Étape 8 — Le Bestiaire d'ArgoCD (Drift, Rollback, Hooks, Sync Waves)
-
-### 1. Le Drift manuel (`kubectl scale`)
-- **Observation** : Le Deployment passe en statut `OutOfSync`.
-- **Conclusion** : Grâce à `selfHeal: true`, ArgoCD détecte l'écart avec la source Git et réapplique la configuration d'origine pour forcer le retour à 2 répliques.
-
-### 2. Le Tag d'image inexistant (`ImagePullBackOff`)
-- **Observation** : ArgoCD affiche l'état `Synced` mais la santé de l'application passe à `Degraded`.
-- **Conclusion** : La synchronisation réussit car le manifest YAML Git est valide, mais Kubernetes ne peut pas démarrer les Pods car l'image n'est pas téléchargeable.
-
-### 3. Le Rollback par `git revert`
-- **Observation** : Le nouveau commit sain est détecté.
-- **Conclusion** : Le rollback s'effectue proprement en moins de 15 secondes. L'application redevient `Synced` et `Healthy`.
-
-### 4. Le Hook de migration (`PreSync`)
-- **Observation** : Le Job de migration s'exécute et se termine avant que les pods applicatifs ne soient mis à jour.
-- **Conclusion** : Permet de sécuriser le schéma de base de données. Si le Job échoue, ArgoCD bloque la mise à jour des Pods.
-
-### 5. Les Sync Waves
-- **Observation** : Le ConfigMap (Wave `-1`) est créé avant le Deployment (Wave `0`).
-- **Conclusion** : Garantit que les configurations sont prêtes en base avant que le code applicatif ne tente de s'y connecter.
-
-### 6. Le Pruning d'une ressource retirée de Git
-- **Observation** : En supprimant `service.yaml` de notre chart, la ressource correspondante est automatiquement détruite dans le cluster.
-- **Conclusion** : Évite les ressources zombies et maintient la propreté du cluster K8s.
-
----
-
-## Étape 9 — Sécuriser et observer ArgoCD
-
-### Trois métriques Prometheus indispensables
-1. **`argocd_app_info`** : Donne l'état de santé de toutes les applications (`Healthy`, `Degraded`, `OutOfSync`). Indispensable pour alerter l'astreinte si une application est dégradée.
-2. **`argocd_app_sync_total`** : Nombre de syncs effectuées avec leur résultat (`Failed`, `Success`). Permet d'identifier une défaillance globale de réconciliation.
-3. **`argocd_git_request_total`** : Compte les requêtes envoyées vers les serveurs Git. Permet de monitorer les timeouts d'API réseau avec GitHub.
-
----
-
-## Étape 10 — Comparer les outils GitOps
-
-| Critère | ArgoCD | Flux CD | Helm + Actions (sans GitOps) |
+#### Service : `annuaire` (Node.js)
+| SLI | SLO | Justification du seuil | Error budget mensuel |
 | :--- | :--- | :--- | :--- |
-| **Courbe d'apprentissage** | **3/5** (UI intuitive, mais structure CRD dense) | **2/5** (Concepts Git bas niveau plus complexes) | **5/5** (Action simple connue de tous) |
-| **UI prête à l'emploi** | **5/5** (L'interface graphique est la meilleure du marché) | **1/5** (CLI uniquement par défaut) | **2/5** (Uniquement les logs de CI) |
-| **Adapté à un mono-repo** | **5/5** (Gère très bien les filtres de sous-chemins) | **4/5** (Performant mais peu visuel) | **3/5** (Complexité de filtrage de chemins de CI) |
-| **Adapté à 50 repos** | **4/5** (Peut ralentir sans configuration de webhooks) | **5/5** (Excellent support d'architectures distribuées) | **1/5** (50 tokens et configs de connexion de CI) |
-| **Coût opérationnel** | **3/5** (Assez lourd : UI, Controller, RepoServer, Redis) | **5/5** (Très léger en ressources CPU/RAM) | **5/5** (0 ressource consommée sur le cluster) |
-| **Risque si l'agent tombe** | **4/5** (Les pods actuels restent actifs) | **4/5** (Les pods actuels restent actifs) | **5/5** (Aucun agent sur le cluster) |
+| **Disponibilité** : Taux de requêtes HTTP réussies (non 5xx) sur 30 jours | **99.5%** | Ce service gère les requêtes métier d'affichage de l'annuaire. Un taux de 99.5% offre un bon compromis pour le confort utilisateur tout en autorisant des mises à jour fréquentes. | **216 minutes** (3h 36m) |
+| **Latence** : Latence au 95e percentile inférieure à 300ms sur 30 jours | **p95 < 300ms** | L'utilisateur s'attend à un affichage instantané des fiches de l'annuaire. Au-delà de 300ms, le ralentissement devient perceptible. | **216 minutes** sous le seuil |
+| **Taux d'erreur SQL** : Proportion de requêtes retournant une erreur de base de données | **< 0.1%** | Les erreurs de base de données indiquent des requêtes mal écrites ou des indisponibilités de connexion avec PostgreSQL. | **43.2 minutes** |
+
+#### Service : `planning` (Python FastAPI)
+| SLI | SLO | Justification du seuil | Error budget mensuel |
+| :--- | :--- | :--- | :--- |
+| **Disponibilité** : Taux de requêtes HTTP réussies (non 5xx) sur 30 jours | **99.0%** | Service de calcul de créneaux plus complexe. Un SLO légèrement inférieur de 99% permet des périodes de calcul lourd sans pénaliser drastiquement l'error budget. | **432 minutes** (7h 12m) |
+| **Latence** : Latence au 95e percentile inférieure à 500ms sur 30 jours | **p95 < 500ms** | Le calcul de chevauchement de créneaux est plus lourd qu'un simple CRUD de l'annuaire. 500ms est un seuil d'attente tolérable pour l'utilisateur. | **432 minutes** sous le seuil |
+| **Taux de timeout externe** : Proportion d'appels vers l'annuaire se terminant en timeout | **< 1%** | Le planning a besoin de valider l'existence des intervenants auprès de l'annuaire. Les échecs réseau doivent rester minimes. | **432 minutes** |
+
+#### Service : `notif` (Go)
+| SLI | SLO | Justification du seuil | Error budget mensuel |
+| :--- | :--- | :--- | :--- |
+| **Disponibilité** : Taux de réussite du traitement des événements de notification | **99.9%** | Le service de notification tourne en arrière-plan et doit être extrêmement fiable pour ne perdre aucun événement important (Slack/Email). | **43.2 minutes** (43m 12s) |
+| **Latence de traitement** : Délai entre la réception de l'événement et son traitement < 2s | **p95 < 2s** | Les notifications n'ont pas besoin d'être instantanées à la milliseconde près, mais un délai de traitement de plus de 2s montre une surcharge de la file. | **43.2 minutes** sous le seuil |
+| **Taux de perte** : Taux d'événements abandonnés ou non délivrés | **0% (strict)** | Perdre une notification de sécurité ou de changement de salle est critique. Les erreurs d'envois doivent être rejouées automatiquement. | **0 minutes** |
 
 ---
 
-## Étape 11 — Synthèse obligatoire : « ArgoCD, et la prod alors ? »
+### 2. Pseudo-code PromQL des SLI
 
-### Livrable 1 — Rétrospective TP 1 → TP 2
+#### Disponibilité (`annuaire`)
+```promql
+sum(rate(http_requests_total{service="annuaire", status_class!~"5.."}[5m]))
+/
+sum(rate(http_requests_total{service="annuaire"}[5m]))
+```
 
-| Opération du quotidien | Au TP 1 (Kubernetes "à la main") | Au TP 2 (Kubernetes piloté par ArgoCD) | Commentaire & Ressenti technique |
-|---|---|---|---|
-| Déployer un service pour la 1ère fois | Écrire 5 YAML, `kubectl apply`, vérifier dans Freelens | Commit du chart Helm dans Git, ArgoCD détecte, sync auto | **Très rassurant** : Le déploiement s'automatise entièrement. |
-| Déployer une nouvelle version | Modifier le tag dans le YAML, re-`kubectl apply` (CI) | Commit qui change `image.tag`, c'est tout | **Simple & rapide** : Livrer se résume à une modification de tag. |
-| Faire un rollback | `kubectl rollout undo` ou relancer la pipeline avec le vieux commit | `git revert` du commit fautif, ArgoCD re-converge | **Propreté absolue** : Le rollback devient un geste Git traçable. |
-| Ouvrir un environnement de plus | Copier `overlays/dev` en `staging`, namespace, refaire la CI | Ajouter une `Application` dans le repo `platform/` | **Industrialisé** : L'infra se duplique sans aucun nouveau script. |
-| Donner un env perso à chaque dev | Quasiment impossible sans donner les droits cluster | `ApplicationSet` + branche Git = preview automatique | **Révolutionnaire** : Les previews isolées par simple push libèrent les devs. |
-| Voir ce qui tourne *en ce moment* | Freelens / `kubectl get all -A` / mémoire collective | UI ArgoCD : un coup d'œil, on voit l'état et la version | **Visibilité totale** : L'arbre graphique offre un confort visuel exceptionnel. |
-| Détecter un `kubectl edit` sauvage | Personne ne s'en aperçoit. Drift silencieux. | ArgoCD passe en `OutOfSync` immédiatement. | **Sécurité renforcée** : Les dérives manuelles sont immédiatement flagguées. |
-| Auto-réparer un drift | Personne ne le fait. Ou un cron `kubectl apply`. | `selfHeal: true` | **Tranquillité d'esprit** : L'auto-correction garantit la conformité de l'infra. |
-| Donner les droits à un nouveau dev | Distribuer un kubeconfig, espérer qu'il ne fasse pas de bêtise | Compte ArgoCD avec rôle `developer` sur son `AppProject` | **Contrôle d'accès** : Accès granulaire sans jamais exposer le cluster. |
-| Hotfix en urgence à 3h du matin | SSH + `kubectl edit` (et on documentera demain…) | PR sur le repo, ArgoCD applique. Tracé. | **Rigide mais sûr** : Le passage forcé par Git évite d'oublier des correctifs. |
-| Auditer les changements sur 6 mois | `kubectl get events` (rétention 1h) + Git log de la CI | `git log` sur les repos `platform/` et services | **Audit parfait** : L'historique Git devient le registre d'audit légal. |
-| Re-déployer le cluster from scratch | Re-lancer Terraform + la CI + prier | Re-lancer Terraform + 1 seul `kubectl apply` pour la `root` | **Robuste** : Reconstruction complète en moins d'une minute. |
-| Désinstaller un service | `kubectl delete -f` (et espérer ne rien oublier) | Supprimer le fichier dans Git → `prune` propre | **Nettoyage automatique** : Plus aucune ressource zombie résiduelle. |
-| Tester un changement risqué | Sur le dev partagé. Croiser les doigts. | Sur sa preview à soi, isolée par branche | **Sérénité** : Les tests complexes sont isolés sur des branches éphémères. |
+#### Latence p95 (`annuaire`)
+```promql
+histogram_quantile(
+  0.95,
+  sum(rate(http_request_duration_seconds_bucket{service="annuaire"}[5m])) by (le)
+)
+```
 
-#### Deux opérations plus contraignantes sous ArgoCD :
-1. **Le Hotfix en urgence à 3h du matin** : Interdiction d'éditer le cluster en direct car ArgoCD écrase le correctif en boucle. Il faut faire une PR, ce qui prend plus de temps, mais garantit que le correctif n'est pas oublié.
-2. **Le test de configuration (Probes/Ressources)** : Devoir commiter à répétition sur sa branche pour ajuster des probes ralentit le feedback de test comparé à un `kubectl apply` local.
+#### Disponibilité (`planning`)
+```promql
+sum(rate(http_requests_total{service="planning", status_class!~"5.."}[5m]))
+/
+sum(rate(http_requests_total{service="planning"}[5m]))
+```
 
-#### L'opération qui justifie ArgoCD à elle seule :
-L'**auto-correction automatique du drift (`selfHeal: true`)** car elle élimine de manière absolue les écarts non documentés entre le Git et le cluster de production.
+#### Latence p95 (`planning`)
+```promql
+histogram_quantile(
+  0.95,
+  sum(rate(http_request_duration_seconds_bucket{service="planning"}[5m])) by (le)
+)
+```
+
+#### Disponibilité (`notif`)
+```promql
+sum(rate(http_requests_total{service="notif", status_class!~"5.."}[5m]))
+/
+sum(rate(http_requests_total{service="notif"}[5m]))
+```
+
+#### Latence p95 (`notif`)
+```promql
+histogram_quantile(
+  0.95,
+  sum(rate(http_request_duration_seconds_bucket{service="notif"}[5m])) by (le)
+)
+```
 
 ---
 
-### Livrable 2 — Ce qu'ArgoCD ne sait pas faire (Angles morts)
+## Étape 2 — Lire, comprendre et configurer l’instrumentation Prometheus
 
-1. **Déploiement progressif (Canary)**
-   * *Risque* : Déployer un bug silencieux à 100 % des utilisateurs d'un coup.
-   * *Outil* : **Argo Rollouts** (pour orchestrer des rollbacks automatiques basés sur des métriques).
-   * *Référence* : [argoproj.github.io/argo-rollouts](https://argoproj.github.io/argo-rollouts/)
-2. **Validation des manifests (Lint/Sécurité)**
-   * *Risque* : Déployer un manifest non sécurisé (ex: conteneur s'exécutant en root).
-   * *Outil* : **Kyverno** ou **OPA Gatekeeper** (moteurs de politiques d'admission).
-   * *Référence* : [kyverno.io/docs](https://kyverno.io/)
-3. **Gestion des secrets dans Git**
-   * *Risque* : Fuite massive de credentials de production dans l'historique Git public.
-   * *Outil* : **External Secrets Operator** ou **Sealed Secrets**.
-   * *Référence* : [external-secrets.io](https://external-secrets.io/)
-4. **Signature et provenance des images**
-   * *Risque* : Déploiement d'une image piratée ou falsifiée sur le cluster.
-   * *Outil* : **Cosign** (Sigstore) pour la signature, couplé à une policy d'admission Kyverno.
-   * *Référence* : [sigstore.dev](https://www.sigstore.dev/)
-5. **RBAC multi-équipe sur ArgoCD**
-   * *Risque* : Un développeur modifie ou suprrime une application d'une autre équipe par accident.
-   * *Outil* : **AppProject** lié à une authentification SSO/OIDC (Keycloak).
-   * *Référence* : [argo-cd.readthedocs.io/en/stable/operator-manual/rbac](https://argo-cd.readthedocs.io/en/stable/operator-manual/rbac/)
-6. **Disaster recovery applicatif**
-   * *Risque* : Perte définitive des bases de données suite à un crash du fournisseur cloud.
-   * *Outil* : **Velero** pour la sauvegarde et restauration des PVC.
-   * *Référence* : [velero.io](https://velero.io/)
-7. **Multi-cluster**
-   * *Risque* : Complexité extrême et duplication des manifests pour gérer des dizaines de clusters.
-   * *Outil* : **ApplicationSet Cluster Generator** configuré en Hub-and-Spoke.
-   * *Référence* : [argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Cluster](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-Cluster/)
+### 1. Choix des buckets configurés dans `values.yaml` (metrics.buckets)
+*[Remplir ici votre justification des buckets en fonction des SLOs de l'Étape 1.]*
+
+### 2. Capture de la sortie `curl /metrics`
+*[Insérer une capture d'écran montrant les buckets effectifs retournés par le service.]*
+
+---
+
+## Étape 3 — Installer kube-prometheus-stack via ArgoCD
+
+### 1. Fichiers et configurations de déploiement
+* **Lien vers le manifeste de l'application parent** : [kube-prometheus-stack.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/platform-sre/apps/observability/kube-prometheus-stack.yaml)
+* **Lien vers les values du chart** : `platform-sre/values.yaml`
+
+### 2. Capture de l'UI ArgoCD montrant l'application Synced + Healthy
+*[Insérer la capture d'écran de l'UI ArgoCD montrant l'application et ses Pods (Prometheus, Grafana, exporter) au vert.]*
+
+---
+
+## Étape 4 — Brancher votre service : ServiceMonitor + premier dashboard
+
+### 1. Fichiers de configuration
+* **Lien vers le template ServiceMonitor du service** : `templates/servicemonitor.yaml`
+* **Lien vers le JSON du dashboard Grafana** : `platform-sre/dashboards/[service].json`
+
+### 2. Les 4 requêtes PromQL utilisées dans le dashboard
+1. **Request rate (RPS)** :  
+   `[Requête PromQL]`
+2. **Error rate** :  
+   `[Requête PromQL]`
+3. **Latency p50 / p95 / p99** :  
+   `[Requête PromQL]`
+4. **Build info** :  
+   `[Requête PromQL]`
+
+---
+
+## Étape 5 — Du Deployment au Rollout
+
+### 1. Fichiers de configuration
+* **Lien vers l'Application d'installation d'Argo Rollouts** : `platform-sre/apps/argo-rollouts.yaml`
+* **Lien vers le chart mis à jour (Rollout + Services)** : `templates/rollout.yaml`
+
+### 2. Capture du Canary en cours
+*[Insérer la capture d'écran de la commande `kubectl argo rollouts get rollout` montrant le split de trafic (ex: 20% / 80%).]*
+
+---
+
+## Étape 6 — Canary manuel : pause, promote, abort
+
+### 1. Pilotage manuel : Les 3 scénarios documentés
+
+#### Scénario 1 : Promotion normale
+* **Commande exacte** : `kubectl argo rollouts promote [nom]`
+* *Observations et captures* : [Détails]
+
+#### Scénario 2 : Annulation explicite (Abort)
+* **Commande exacte** : `kubectl argo rollouts abort [nom]`
+* *Observations et captures* : [Détails]
+
+#### Scénario 3 : Promotion forcée (Full)
+* **Commande exacte** : `kubectl argo rollouts promote [nom] --full`
+* *Observations et captures* : [Détails]
+
+### 2. Réponse argumentée : Promote `--full` en production
+> « [Insérer votre réponse argumentée sur le danger et la justification du promote --full en production] »
+
+---
+
+## Étape 7 — AnalysisTemplate : La promotion sur preuve
+
+### 1. Fichiers de configuration
+* **Lien vers l'AnalysisTemplate** : `templates/analysistemplate.yaml`
+
+### 2. Captures d'écrans des AnalysisRuns
+* **AnalysisRun réussi** (Canary OK, promotion automatique) : *[Insérer la capture]*
+* **AnalysisRun échoué** (Canary KO, rollback automatique) : *[Insérer la capture]*
+
+### 3. Discussion sur le choix des seuils et la durée d'analyse
+*[Remplir votre discussion sur le calibrage des seuils (taux d'erreur < 1%, latence) et la durée (5 minutes) pour obtenir une mesure statistiquement viable.]*
+
+---
+
+## Étape 8 — Blue/Green : Autre stratégie, autre arbitrage
+
+### 1. Fichiers de configuration
+* **Lien vers le chart Helm du service configuré en Blue/Green** : `templates/rollout.yaml`
+
+### 2. Tableau comparatif : Canary vs. Blue/Green
+*[Insérer votre tableau comparatif présentant les avantages, inconvénients et cas d'usages respectifs.]*
+
+### 3. Capture de la bascule manuelle réussie
+*[Insérer la capture de l'UI Argo Rollouts ou de la console lors de la bascule.]*
+
+---
+
+## Étape 9 — Routage avancé : Header-based pour les tests internes
+
+### 1. Fichiers de configuration
+* **Lien vers le chart ou ingress mis à jour** : `templates/ingress.yaml`
+
+### 2. Démonstration curl des deux comportements
+```text
+$ curl [service].devhub.local
+[Réponse attendue : version stable]
+
+$ curl -H "X-Beta-User: true" [service].devhub.local
+[Réponse attendue : version canary]
+```
+
+---
+
+## Étape 10 — Alerting Alertmanager et notifications Rollouts
+
+### 1. Fichiers et configurations de la chaîne d'alerte
+* **Lien vers les PrometheusRules** : `templates/prometheusrule.yaml`
+* **Configuration d'Alertmanager** : `platform-sre/alertmanager-config.yaml`
+* **Configuration des notifications d'Argo Rollouts** : `platform-sre/rollouts-notifications.yaml`
+
+### 2. Captures d'écrans des Webhooks de notifications
+* **Webhook primaire (Page / Alerte critique)** : *[Insérer la capture]*
+* **Webhook secondaire (Ticket / Alerte modérée)** : *[Insérer la capture]*
+* **Webhook de notifications de déploiement** : *[Insérer la capture]*
+
+---
+
+## Étape 11 — Comparer Argo Rollouts, Flagger et la Rolling-Update native
+
+### Matrice d'évaluation complétée
+
+| Critère | RollingUpdate natif | Argo Rollouts | Flagger | Justification technique |
+| :--- | :---: | :---: | :---: | :--- |
+| **Courbe d'apprentissage** | /5 | /5 | /5 | [Justification] |
+| **Intégration avec ArgoCD (GitOps)** | /5 | /5 | /5 | [Justification] |
+| **Intégration avec Flux CD (GitOps)** | /5 | /5 | /5 | [Justification] |
+| **Variété des stratégies** | /5 | /5 | /5 | [Justification] |
+| **Variété des metric providers** | /5 | /5 | /5 | [Justification] |
+| **UI / Dashboard prêt à l'emploi** | /5 | /5 | /5 | [Justification] |
+| **Coût opérationnel dans le cluster** | /5 | /5 | /5 | [Justification] |
+| **Adapté à un mesh (Linkerd/Istio)** | /5 | /5 | /5 | [Justification] |
+| **Communauté / Releases** | /5 | /5 | /5 | [Justification] |
+| **Risque si le contrôleur tombe** | /5 | /5 | /5 | [Justification] |
+
+---
+
+## Étape 12 — Synthèse obligatoire : « Ma chaîne de release est-elle production-ready ? »
+
+### Livrable 1 — Rétrospective : Le même geste, trois paradigmes
+*[Insérer vos commentaires pour chaque ligne du tableau de paradigmes.]*
+
+### Livrable 2 — Ce que cette chaîne ne sait toujours pas faire
+*[Analyse des 7 thèmes d'angles morts (Traçabilité distribuée, Loki, RUM, Chaos, Kyverno, Cosign, Velero) en 5 à 10 lignes par thème.]*
+
+### Livrable 3 — Votre position d'architecte
+*[Votre plaidoyer technique de 10 lignes maximum présentant les briques que vous conservez, remplacez ou ajoutez dans une architecture industrielle.]*
