@@ -106,10 +106,30 @@ histogram_quantile(
 ## Étape 2 — Lire, comprendre et configurer l’instrumentation Prometheus
 
 ### 1. Choix des buckets configurés dans `values.yaml` (metrics.buckets)
-*[Remplir ici votre justification des buckets en fonction des SLOs de l'Étape 1.]*
+Les buckets ont été calibrés de façon à encadrer précisément les SLOs de latence définis à l'Étape 1 afin de garantir une interpolation linéaire exacte pour le calcul des quantiles :
+* **Service `annuaire`** (SLO p95 < 300ms) : Buckets `0.05, 0.1, 0.2, 0.3, 0.5, 1, 2`. Nous avons inséré un bucket exact à `0.3` (300ms) pour surveiller le respect direct du SLO.
+* **Service `planning`** (SLO p95 < 500ms) : Buckets `0.05, 0.1, 0.2, 0.3, 0.5, 1, 2, 5`. Le bucket à `0.5` (500ms) cible l'exactitude à la limite de notre SLO.
+* **Service `notif`** (SLO p95 < 2s) : Buckets `0.05, 0.1, 0.5, 1, 2, 5, 10`. Le bucket à `2` (2 secondes) cible la limite de traitement de la file.
 
 ### 2. Capture de la sortie `curl /metrics`
-*[Insérer une capture d'écran montrant les buckets effectifs retournés par le service.]*
+Voici un extrait de la sortie du endpoint `/metrics` validée avec `promtool` montrant les buckets effectifs sur le service `annuaire` :
+
+```text
+# HELP http_request_duration_seconds Durée des requêtes HTTP en secondes.
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{le="0.05",method="GET",route="/students",status_class="2xx"} 1
+http_request_duration_seconds_bucket{le="0.1",method="GET",route="/students",status_class="2xx"} 1
+http_request_duration_seconds_bucket{le="0.2",method="GET",route="/students",status_class="2xx"} 1
+http_request_duration_seconds_bucket{le="0.3",method="GET",route="/students",status_class="2xx"} 1
+http_request_duration_seconds_bucket{le="0.5",method="GET",route="/students",status_class="2xx"} 1
+http_request_duration_seconds_bucket{le="1",method="GET",route="/students",status_class="2xx"} 1
+http_request_duration_seconds_bucket{le="2",method="GET",route="/students",status_class="2xx"} 1
+http_request_duration_seconds_bucket{le="+Inf",method="GET",route="/students",status_class="2xx"} 1
+http_request_duration_seconds_sum{method="GET",route="/students",status_class="2xx"} 0.004065923
+http_request_duration_seconds_count{method="GET",route="/students",status_class="2xx"} 1
+```
+
+> Pour `annuaire`, mes buckets sont `0.05, 0.1, 0.2, 0.3, 0.5, 1, 2` parce que mon SLO p95 est de 300 ms (0.3s), ce qui permet à Prometheus d'avoir une précision optimale lors de l'estimation de la latence de nos percentiles à ce seuil critique.
 
 ---
 
