@@ -136,11 +136,13 @@ http_request_duration_seconds_count{method="GET",route="/students",status_class=
 ## Étape 3 — Installer kube-prometheus-stack via ArgoCD
 
 ### 1. Fichiers et configurations de déploiement
-* **Lien vers le manifeste de l'application parent** : `platform-sre/apps/observability/kube-prometheus-stack.yaml`
-* **Lien vers les values du chart** : `platform-sre/values/kube-prometheus-stack.yaml`
+* **Manifeste de l'application parent** : [kube-prometheus-stack.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/platform-sre/apps/observability/kube-prometheus-stack.yaml)
+* **Values du chart** : [kube-prometheus-stack-values.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/platform-sre/values/kube-prometheus-stack-values.yaml)
 
 ### 2. Capture de l'UI ArgoCD montrant l'application Synced + Healthy
-*[Insérer la capture d'écran de l'UI ArgoCD montrant l'application et ses Pods (Prometheus, Grafana, exporter) au vert.]*
+*[ACTION REQUISE : Prenez une capture d'écran de votre interface ArgoCD pour l'application "kube-prometheus-stack" montrant tous les composants au statut Synced & Healthy, puis insérez-la ci-dessous.]*
+
+*(Note : Tous les pods de la stack (Grafana, Operator, NodeExporter, Prometheus, StateMetrics) sont bien `Running` et opérationnels dans le namespace `monitoring` du cluster).*
 
 ---
 
