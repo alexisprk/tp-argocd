@@ -149,18 +149,24 @@ http_request_duration_seconds_count{method="GET",route="/students",status_class=
 ## Étape 4 — Brancher votre service : ServiceMonitor + premier dashboard
 
 ### 1. Fichiers de configuration
-* **Lien vers le template ServiceMonitor du service** : `templates/servicemonitor.yaml`
-* **Lien vers le JSON du dashboard Grafana** : `platform-sre/dashboards/[service].json`
+* **Template ServiceMonitor du service** : [servicemonitor.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/services/annuaire/chart/templates/servicemonitor.yaml)
+* **JSON du dashboard Grafana** : [annuaire.json](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/platform-sre/dashboards/annuaire.json)
 
 ### 2. Les 4 requêtes PromQL utilisées dans le dashboard
 1. **Request rate (RPS)** :  
-   `[Requête PromQL]`
+   `sum(rate(http_requests_total{job="annuaire-dev-annuaire"}[5m])) by (route, method)`  
+   *Explication : Calcule le taux de requêtes par seconde servies par l'annuaire, regroupées par route et méthode HTTP.*
 2. **Error rate** :  
-   `[Requête PromQL]`
+   `sum(rate(http_requests_total{job="annuaire-dev-annuaire", status_class="5xx"}[5m])) / sum(rate(http_requests_total{job="annuaire-dev-annuaire"}[5m]))`  
+   *Explication : Calcule la proportion de réponses en erreur HTTP 5xx par rapport au total des requêtes.*
 3. **Latency p50 / p95 / p99** :  
-   `[Requête PromQL]`
-4. **Build info** :  
-   `[Requête PromQL]`
+   * **p50 (médiane)** : `histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job="annuaire-dev-annuaire"}[5m])) by (le))`
+   * **p95** : `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="annuaire-dev-annuaire"}[5m])) by (le))`
+   * **p99** : `histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="annuaire-dev-annuaire"}[5m])) by (le))`  
+   *Explication : Calcule les quantiles de latence des requêtes HTTP à partir des buckets d'histogrammes configurés.*
+4. **Build info (active image tag)** :  
+   `sum(annuaire_build_info) by (version, commit, language)`  
+   *Explication : Extrait les métadonnées de version applicative exposées par la jauge statique du middleware.*
 
 ---
 
