@@ -81,5 +81,7 @@ kubeProxy:
 prometheusOperator:
   admissionWebhooks:
     patch:
-      enabled: true
-    enabled: true
+      enabled: false
+    enabled: false
+  tlsProxy:
+    enabled: false
