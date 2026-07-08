@@ -9,7 +9,9 @@ ingress:
   host: annuaire.devhub.local
 
 env:
-  LOG_LEVEL: debug
+  LOG_LEVEL: warn
+
+failRate: "1"
 
 # En étape 4 vous activerez le ServiceMonitor :
 monitoring:
