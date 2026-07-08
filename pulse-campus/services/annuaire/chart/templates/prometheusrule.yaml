@@ -1,0 +1,38 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "annuaire.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "annuaire.labels" . | nindent 4 }}
+    release: {{ .Values.monitoring.serviceMonitor.release | quote }}
+spec:
+  groups:
+    - name: annuaire-alerts
+      rules:
+        - alert: AnnuaireHighErrorRate
+          expr: |
+            (sum(rate(http_requests_total{job=~"{{ include "annuaire.fullname" . }}-.*", status_class="5xx"}[2m])) 
+            / 
+            (sum(rate(http_requests_total{job=~"{{ include "annuaire.fullname" . }}-.*"}[2m])) or on() vector(1))) 
+            > 0.05
+          for: 1m
+          labels:
+            severity: critical
+            team: devhub-sre
+          annotations:
+            summary: "High error rate on {{ include "annuaire.fullname" . }}"
+            description: "The error rate of {{ include "annuaire.fullname" . }} is above 5% (current: {{ `{{ $value }}` }})."
+        - alert: AnnuaireHighLatency
+          expr: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=~"{{ include "annuaire.fullname" . }}-.*"}[2m])) by (le)) 
+            > 0.3
+          for: 2m
+          labels:
+            severity: warning
+            team: devhub-sre
+          annotations:
+            summary: "High p95 latency on {{ include "annuaire.fullname" . }}"
+            description: "The p95 latency of {{ include "annuaire.fullname" . }} is above 300ms (current: {{ `{{ $value }}` }}s)."
+{{- end }}
