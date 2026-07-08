@@ -5,6 +5,9 @@ metadata:
   name: {{ include "annuaire.fullname" . }}
   labels:
     {{- include "annuaire.labels" . | nindent 4 }}
+  annotations:
+    notifications.argoproj.io/subscribe.on-rollout-completed.notif: ""
+    notifications.argoproj.io/subscribe.on-rollout-aborted.notif: ""
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
