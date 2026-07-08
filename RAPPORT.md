@@ -140,8 +140,8 @@ http_request_duration_seconds_count{method="GET",route="/students",status_class=
 * **Values du chart** : [kube-prometheus-stack-values.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/platform-sre/values/kube-prometheus-stack-values.yaml)
 
 ### 2. Capture de l'UI ArgoCD montrant l'application Synced + Healthy
-*[ACTION REQUISE : Prenez une capture d'écran de votre interface ArgoCD pour l'application "kube-prometheus-stack" montrant tous les composants au statut Synced & Healthy, puis insérez-la ci-dessous.]*
-
+![alt text](image.png)
+![alt text](image-1.png)
 *(Note : Tous les pods de la stack (Grafana, Operator, NodeExporter, Prometheus, StateMetrics) sont bien `Running` et opérationnels dans le namespace `monitoring` du cluster).*
 
 ---
@@ -208,8 +208,8 @@ http_request_duration_seconds_count{method="GET",route="/students",status_class=
 * **AnalysisTemplate du service** : [analysistemplate.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/services/annuaire/chart/templates/analysistemplate.yaml)
 
 ### 2. Captures d'écrans des AnalysisRuns
-* **AnalysisRun réussi** (Canary OK, promotion automatique) : *[ACTION REQUISE : Prenez une capture d'écran du statut du Rollout pour la revision 4 (ou une promotion réussie sans erreur) montrant l'AnalysisRun au statut `Successful`.]*
-* **AnalysisRun échoué** (Canary KO, rollback automatique) : *[ACTION REQUISE : Prenez une capture d'écran du statut du Rollout pour la revision 5 montrant le statut `Degraded` et le message `RolloutAborted: Metric "success-rate" assessed Failed`.]*
+* **AnalysisRun réussi** (Canary OK, promotion automatique) : ![AnalysisRun Réussi](image-2.png)
+* **AnalysisRun échoué** (Canary KO, rollback automatique) : ![AnalysisRun Échoué](image-2.png)
 
 ### 3. Discussion sur le choix des seuils et la durée d'analyse
 Le calibrage des SLOs/SLIs est critique pour un pipeline de livraison progressive fiable :
