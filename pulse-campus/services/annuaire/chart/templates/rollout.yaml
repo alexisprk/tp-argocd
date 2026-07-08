@@ -67,6 +67,9 @@ spec:
       trafficRouting:
         nginx:
           stableIngress: {{ include "annuaire.fullname" . }}
+          additionalIngressAnnotations:
+            nginx.ingress.kubernetes.io/canary-by-header: "X-Canary"
+            nginx.ingress.kubernetes.io/canary-by-header-value: "always"
       steps:
         - setWeight: 20
         - pause: { duration: 30s }
