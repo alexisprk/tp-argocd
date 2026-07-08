@@ -9,7 +9,7 @@ ingress:
   host: annuaire.devhub.local
 
 env:
-  LOG_LEVEL: warn
+  LOG_LEVEL: debug
 
 failRate: "1"
 
