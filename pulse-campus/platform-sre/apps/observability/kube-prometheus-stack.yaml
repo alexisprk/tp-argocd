@@ -45,6 +45,7 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - ServerSideDiff=true
     # Le chart crée beaucoup de CRDs ; en cas de drift, on les ignore.
     # TODO : décidez si vous activez cette ligne.
     # retry:
