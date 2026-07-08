@@ -17,12 +17,42 @@ dashboard:
 
 # Active le service de notifications utilisé en étape 10.
 notifications:
-  notifiers: {}
-  # TODO étape 10 : configurez ici les webhooks (succès, échec).
-  # secret:
-  #   create: true
-  # configmap:
-  #   create: true
+  notifiers:
+    service.webhook.notif: |
+      url: http://notif-dev-notif.devhub-dev.svc.cluster.local:8080/events
+      headers:
+        - name: Content-Type
+          value: application/json
+  templates:
+    template.rollout-completed: |
+      webhook:
+        notif:
+          method: POST
+          body: |
+            {
+              "type": "info",
+              "message": "Rollout {{ .Rollout.Name }} has completed successfully."
+            }
+    template.rollout-aborted: |
+      webhook:
+        notif:
+          method: POST
+          body: |
+            {
+              "type": "error",
+              "message": "Rollout {{ .Rollout.Name }} has aborted and rolled back."
+            }
+  triggers:
+    trigger.on-rollout-completed: |
+      - when: rollout.status == 'healthy'
+        send: [rollout-completed]
+    trigger.on-rollout-aborted: |
+      - when: rollout.status == 'degraded'
+        send: [rollout-aborted]
+  secret:
+    create: true
+  configmap:
+    create: true
 
 # En kind, gardez les ressources légères.
 controller:
