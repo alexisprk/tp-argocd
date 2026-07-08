@@ -11,3 +11,6 @@ env:
 # En étape 4 vous activerez le ServiceMonitor :
 monitoring:
   enabled: true
+
+# Étape 5 : Activer le Rollout (désactiver le Deployment de secours)
+useDeployment: false
