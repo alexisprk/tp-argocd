@@ -70,5 +70,8 @@ spec:
         - pause: { duration: 30s }
         - setWeight: 50
         - pause: { duration: 30s }
+        - analysis:
+            templates:
+              - templateName: {{ include "annuaire.fullname" . }}-metrics-analysis
         - setWeight: 100
 {{- end }}

@@ -1,0 +1,31 @@
+{{- if not .Values.useDeployment }}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "annuaire.fullname" . }}-metrics-analysis
+  namespace: {{ .Release.Namespace }}
+spec:
+  metrics:
+    - name: success-rate
+      interval: 10s
+      count: 3
+      successCondition: len(result) == 0 || result[0] >= 0.98
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://kps-prometheus.monitoring.svc:9090
+          query: |
+            sum(rate(http_requests_total{job="{{ include "annuaire.fullname" . }}", status_class="2xx"}[1m]))
+            /
+            (sum(rate(http_requests_total{job="{{ include "annuaire.fullname" . }}"}[1m])) or on() vector(0))
+    - name: latency-p95
+      interval: 10s
+      count: 3
+      successCondition: len(result) == 0 || result[0] <= 0.300
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://kps-prometheus.monitoring.svc:9090
+          query: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="{{ include "annuaire.fullname" . }}"}[1m])) by (le))
+{{- end }}
