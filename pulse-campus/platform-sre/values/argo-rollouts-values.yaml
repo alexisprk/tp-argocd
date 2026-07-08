@@ -31,7 +31,7 @@ notifications:
           body: |
             {
               "type": "info",
-              "message": "Rollout {{ .rollout.metadata.name }} has completed successfully."
+              "message": "Rollout {{`{{` .rollout.metadata.name `}}`}} has completed successfully."
             }
     template.rollout-aborted: |
       webhook:
@@ -40,7 +40,7 @@ notifications:
           body: |
             {
               "type": "error",
-              "message": "Rollout {{ .rollout.metadata.name }} has aborted and rolled back."
+              "message": "Rollout {{`{{` .rollout.metadata.name `}}`}} has aborted and rolled back."
             }
   triggers:
     trigger.on-rollout-completed: |
