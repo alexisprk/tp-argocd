@@ -9,5 +9,9 @@ env:
   LOG_LEVEL: debug
 
 # En étape 4 vous activerez le ServiceMonitor :
-# monitoring:
-#   enabled: true
+monitoring:
+  enabled: true
+
+# Étape 8 : Activer le Rollout Blue/Green
+useDeployment: false
+strategyType: "blueGreen"

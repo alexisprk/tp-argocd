@@ -33,6 +33,7 @@ monitoring:
     release: kps
 
 useDeployment: true
+strategyType: "canary"
 
 resources:
   requests:

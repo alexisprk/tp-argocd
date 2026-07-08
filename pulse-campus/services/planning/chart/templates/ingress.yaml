@@ -15,7 +15,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "planning.fullname" . }}
+                name: {{ if .Values.useDeployment }}{{ include "planning.fullname" . }}{{ else if eq .Values.strategyType "blueGreen" }}{{ include "planning.fullname" . }}-active{{ else }}{{ include "planning.fullname" . }}-stable{{ end }}
                 port:
                   number: {{ .Values.service.port }}
 {{- end }}

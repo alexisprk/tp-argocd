@@ -6,6 +6,7 @@
   Le label `release` est requis pour que le ServiceMonitor du
   kube-prometheus-stack le découvre (cf. étape 4).
 */ -}}
+{{- if .Values.useDeployment }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -24,3 +25,4 @@ spec:
       protocol: TCP
   selector:
     {{- include "planning.selectorLabels" . | nindent 4 }}
+{{- end }}
