@@ -11,7 +11,7 @@ ingress:
 env:
   LOG_LEVEL: debug
 
-failRate: "1"
+failRate: "0"
 
 # En étape 4 vous activerez le ServiceMonitor :
 monitoring:
