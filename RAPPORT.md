@@ -234,7 +234,7 @@ Le calibrage des SLOs/SLIs est critique pour un pipeline de livraison progressiv
 | **Cas d'usage type** | Services web à fort trafic, API critiques orientées client. | Services de traitement par lots (batchs), applications étatiques (stateful) ou architectures monolithiques. |
 
 ### 3. Capture de la bascule manuelle réussie
-*[ACTION REQUISE : Prenez une capture d'écran de l'UI Argo Rollouts ou de la console montrant la promotion du service `planning` lors de sa bascule de répliques d'une version à la suivante, puis insérez-la ci-dessous.]*
+![alt text](image-3.png)
 
 ---
 
@@ -276,7 +276,7 @@ ETag: W/"27-Z/5Q9rL1tL2y0T6S+Jz5Z9A1A1A"
 * **Configuration des notifications d'Argo Rollouts** : [argo-rollouts-values.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/platform-sre/values/argo-rollouts-values.yaml) (notifiers, templates et triggers).
 
 ### 2. Captures d'écrans des Webhooks de notifications
-*[ACTION REQUISE : Prenez des captures d'écran des alertes déclenchées (ex: mail ou console) ou des notifications webhook stockées dans la mémoire du service `notif` en interrogeant `curl http://notif.devhub.local/events` et insérez-les ci-dessous.]*
+![alt text](image-4.png)
 
 ---
 
