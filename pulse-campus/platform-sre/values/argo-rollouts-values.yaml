@@ -44,10 +44,10 @@ notifications:
             }
   triggers:
     trigger.on-rollout-completed: |
-      - when: rollout.status == 'healthy'
+      - when: rollout.status.phase == 'Healthy'
         send: [rollout-completed]
     trigger.on-rollout-aborted: |
-      - when: rollout.status == 'degraded'
+      - when: rollout.status.phase == 'Degraded'
         send: [rollout-aborted]
   secret:
     create: true
