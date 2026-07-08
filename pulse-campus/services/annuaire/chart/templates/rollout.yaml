@@ -35,6 +35,8 @@ spec:
               value: {{ .Values.metrics.buckets | quote }}
             - name: METRICS_BUSINESS_ENABLED
               value: {{ .Values.metrics.businessEnabled | quote }}
+            - name: FAIL_RATE
+              value: {{ .Values.failRate | default "0" | quote }}
             - name: VERSION
               value: {{ .Chart.AppVersion | quote }}
             - name: COMMIT

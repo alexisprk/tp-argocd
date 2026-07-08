@@ -28,6 +28,8 @@ metrics:
   buckets: "0.05,0.1,0.2,0.3,0.5,1,2"
   businessEnabled: false
 
+failRate: "0"
+
 # Sera passé à true en étape 4 (ServiceMonitor activé).
 monitoring:
   enabled: false
