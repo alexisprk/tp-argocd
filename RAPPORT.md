@@ -177,7 +177,7 @@ http_request_duration_seconds_count{method="GET",route="/students",status_class=
 * **Chart mis à jour (Rollout + Services)** : [rollout.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/services/annuaire/chart/templates/rollout.yaml) et [services-rollout.yaml](file:///c:/Users/carro/Downloads/tp-argocd/tp-argocd/devhub-campus/pulse-campus/services/annuaire/chart/templates/services-rollout.yaml)
 
 ### 2. Capture du Canary en cours
-*[ACTION REQUISE : Prenez une capture d'écran de votre console avec la commande `kubectl argo rollouts get rollout annuaire-dev-annuaire -n devhub-dev` montrant le split de trafic (ex : 1 pod canary et 2 pods stable lors du palier à 50% de poids) et insérez-la ci-dessous.]*
+![alt text](image-5.png)
 
 ---
 
